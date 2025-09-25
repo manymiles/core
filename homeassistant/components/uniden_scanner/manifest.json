@@ -1,0 +1,10 @@
+{
+  "domain": "uniden_scanner",
+  "name": "Uniden Scanner",
+  "codeowners": ["@manymiles"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://www.home-assistant.io/integrations/mmiles2",
+  "iot_class": "local_polling",
+  "requirements": []
+}

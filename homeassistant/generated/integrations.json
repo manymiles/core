@@ -7064,6 +7064,12 @@
       "config_flow": true,
       "iot_class": "cloud_polling"
     },
+    "uniden_scanner": {
+      "name": "Uniden Scanner",
+      "integration_type": "hub",
+      "config_flow": true,
+      "iot_class": "local_polling"
+    },
     "universal": {
       "name": "Universal media player",
       "integration_type": "hub",
