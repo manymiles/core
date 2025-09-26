@@ -33,6 +33,7 @@ SUPPORT_UNIDEN = (
     | MediaPlayerEntityFeature.NEXT_TRACK
     | MediaPlayerEntityFeature.PLAY
     | MediaPlayerEntityFeature.PAUSE
+    | MediaPlayerEntityFeature.TURN_OFF
 )
 
 SCAN_INTERVAL = timedelta(seconds=1)
@@ -166,6 +167,7 @@ class UnidenScanner(MediaPlayerEntity):
         try:
             # Create a UDP socket
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.settimeout(1)  # 1 second timeout
                 # Send the command with a carriage return
                 cmd = (command + "\r").encode("latin-1")
                 s.sendto(cmd, (self._ip_address, self._port))
@@ -195,7 +197,7 @@ class UnidenScanner(MediaPlayerEntity):
     def update(self) -> None:
         """Fetch the latest state."""
 
-        _LOGGER.warning("Update called: %s", self._name)
+        # _LOGGER.warning("Update called: %s", self._name)
 
         if not self._enabled:
             # _LOGGER.warning("Not enabled: %s", self._name)
@@ -440,3 +442,7 @@ class UnidenScanner(MediaPlayerEntity):
             response.raise_for_status()
         except requests.exceptions.RequestException:
             _LOGGER.error("Error sending next track command")
+
+    async def async_turn_off(self) -> None:
+        """Reboot the device."""
+        self.send_command("MSM,1", "xml")
