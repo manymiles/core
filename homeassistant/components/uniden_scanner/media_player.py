@@ -35,7 +35,7 @@ SUPPORT_UNIDEN = (
     | MediaPlayerEntityFeature.PAUSE
 )
 
-SCAN_INTERVAL = timedelta(seconds=0.25)
+SCAN_INTERVAL = timedelta(seconds=1)
 
 
 def setup_platform(
@@ -59,23 +59,32 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the Uniden Scanner media player from a config entry."""
-    ip_address = config_entry.data["Scanner IP Address"]
-    port = config_entry.data.get("Scanner IP Port", "50536")
-    name = config_entry.data.get("Scanner Name", "Uniden Scanner")
 
-    # _LOGGER.info(f"Setting up Uniden Scanner at {ip_address}:{port}")
+    # _LOGGER.warning(f"config_entry: {config_entry.data['Scanner IP Port']}")
 
-    async_add_entities([UnidenScanner(ip_address, port, name)], True)
+    scanner_details = {
+        "ip_address": config_entry.data["Scanner IP Address"],
+        "port": config_entry.data["Scanner IP Port"],
+        "name": config_entry.data["Scanner Name"],
+        "model": config_entry.data["Scanner Model"],
+        "enabled": config_entry.data["Active"],
+        "access_method": config_entry.data["Access Method"],
+    }
+
+    async_add_entities([UnidenScanner(scanner_details)], True)
 
 
 class UnidenScanner(MediaPlayerEntity):
     """Representation of a Uniden Scanner."""
 
-    def __init__(self, ip_address: str, port: int, name: str) -> None:
+    def __init__(self, scanner_details: dict) -> None:
         """Initialize the Uniden Scanner."""
-        self._name = name
-        self._ip_address = ip_address
-        self._port = port
+        self._name = scanner_details["name"]
+        self._ip_address = scanner_details["ip_address"]
+        self._port = int(scanner_details["port"])
+        self._model = scanner_details["model"]
+        self._enabled = scanner_details["enabled"]
+        self._access_method = scanner_details["access_method"]
         self._volume = 0
         self._state = MediaPlayerState.OFF
         self._mode = "unknown"
@@ -184,18 +193,21 @@ class UnidenScanner(MediaPlayerEntity):
         return response
 
     def update(self) -> None:
-        """Fetch the latest state from the scanner API."""
+        """Fetch the latest state."""
 
-        # _LOGGER.warning(f"Update called for {self._ip_address}")
-
-        if self._ip_address == "10.0.43.106":
-            self.update_direct()
-        else:
-            # self.update_flask()
-            pass
+        # _LOGGER.warning("Update called: %s", self._access_method)
+        match self._access_method:
+            case "Direct":
+                self.update_direct()
+            case "API":
+                self.update_flask()
+            case _:
+                # Should not happen, but just in case
+                _LOGGER.error("Unknown access method")
+                return
 
     def update_direct(self) -> None:
-        """Fetch the latest state from the scanner API."""
+        """Fetch the latest state directly from the scanner."""
 
         # _LOGGER.warning(f"Direct for {self._ip_address}")
         # scanner_val = self.send_command("GSI", "xml")
