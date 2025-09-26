@@ -79,6 +79,8 @@ async def async_setup_entry(
 class UnidenScanner(MediaPlayerEntity):
     """Representation of a Uniden Scanner."""
 
+    calling_scanner = False
+
     def __init__(self, scanner_details: dict) -> None:
         """Initialize the Uniden Scanner."""
         self._name = scanner_details["name"]
@@ -213,6 +215,14 @@ class UnidenScanner(MediaPlayerEntity):
         """Fetch the latest state."""
         current_condition = {}
 
+        while UnidenScanner.calling_scanner:
+            # Another instance is already accessing the scanner, so wait a bit
+            _LOGGER.debug("Delaying access: %s", self._name)
+            time.sleep(0.1)
+
+        # Take the scanner lock
+        UnidenScanner.calling_scanner = True
+
         # _LOGGER.warning("Update called: %s", self._reachable)
 
         # if not self._enabled:
@@ -230,6 +240,10 @@ class UnidenScanner(MediaPlayerEntity):
                 _LOGGER.error("Unknown access method")
                 # status = "unknown"
 
+        # Release the scanner lock
+        UnidenScanner.calling_scanner = False
+
+        # Check for an error condition
         if current_condition["error"] is None:
             self.set_online()
         else:
@@ -237,6 +251,7 @@ class UnidenScanner(MediaPlayerEntity):
             # _LOGGER.error("Error reachable %s", self._reachable)
             self.set_offline()
 
+        # Update the UI elements
         self.update_ui(current_condition)
 
     def fetch_direct(self) -> dict:
