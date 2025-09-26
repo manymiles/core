@@ -27,7 +27,26 @@ DATA_SCHEMA = vol.Schema(
                 }
             }
         ),
-        vol.Optional("Polling Time", default=5): int,
+        vol.Required("Access Method", default="Direct"): selector(
+            {
+                "select": {
+                    "options": [
+                        "Direct",
+                        "API",
+                    ]
+                }
+            }
+        ),
+        vol.Required("Active", default="Enabled"): selector(
+            {
+                "select": {
+                    "options": [
+                        "Enabled",
+                        "Disabled",
+                    ]
+                }
+            }
+        ),
     }
 )
 
