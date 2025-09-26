@@ -86,10 +86,12 @@ class UnidenScanner(MediaPlayerEntity):
         self._port = int(scanner_details["port"])
         self._model = scanner_details["model"]
         # self._enabled = scanner_details["enabled"]
-        self._access_method = scanner_details["access_method"]
+        self._access_method = scanner_details[
+            "access_method"
+        ]  # "Direct" for direct IP connection, "API" for API access
         self._volume = 0
         self._state = MediaPlayerState.OFF
-        self._reachable = False
+        self._reachable = False  # Used to track if the scanner is reachable
         self._mode = "unknown"
         self._is_volume_muted = False
         self._unmute_volume = self._volume
@@ -185,11 +187,11 @@ class UnidenScanner(MediaPlayerEntity):
 
                 return data
         except TimeoutError:
-            if self._reachable:
-                # Only report this once so the logs don't get flooded
-                _LOGGER.error("Timed out waiting for response from scanner")
+            # if self._reachable:
+            # Only report this once so the logs don't get flooded
+            # _LOGGER.error("Timed out waiting for response from scanner")
 
-            self._reachable = False
+            # self._reachable = False
 
             return None
         except OSError:
@@ -232,7 +234,7 @@ class UnidenScanner(MediaPlayerEntity):
             self.set_online()
         else:
             # Error on fetch
-            _LOGGER.error("Error fetching status: %s", current_condition["error"])
+            # _LOGGER.error("Error reachable %s", self._reachable)
             self.set_offline()
 
         self.update_ui(current_condition)
@@ -254,7 +256,7 @@ class UnidenScanner(MediaPlayerEntity):
                 error = "No response from scanner"
                 # self.set_offline()
         except requests.exceptions.RequestException:
-            _LOGGER.error("Error fetching status")
+            # _LOGGER.error("Error fetching status")
             error = "Exception fetching status"
             (channel, dept_name) = "Unknown Channel", "Unknown Department"
 
@@ -486,6 +488,10 @@ class UnidenScanner(MediaPlayerEntity):
 
     def set_offline(self) -> None:
         """Set the scanner to offline state."""
+        # _LOGGER.error("Setting offline %s", self._reachable)
+        if self._reachable:
+            _LOGGER.warning("%s is unreachable", self._name)
+
         self._state = MediaPlayerState.OFF
         self._volume = 0
         self._mode = "offline"
@@ -493,6 +499,9 @@ class UnidenScanner(MediaPlayerEntity):
 
     def set_online(self) -> None:
         """Set the scanner to online state."""
+        if not self._reachable:
+            _LOGGER.warning("%s is reachable", self._name)
+
         self._state = MediaPlayerState.PLAYING
         self._volume = 3
         self._mode = "Trunk Scan"
