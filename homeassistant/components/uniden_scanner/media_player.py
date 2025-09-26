@@ -69,7 +69,7 @@ async def async_setup_entry(
         "port": config_entry.data["Scanner IP Port"],
         "name": config_entry.data["Scanner Name"],
         "model": config_entry.data["Scanner Model"],
-        "enabled": config_entry.data["Active"],
+        # "enabled": config_entry.data["Active"],
         "access_method": config_entry.data["Access Method"],
     }
 
@@ -85,7 +85,7 @@ class UnidenScanner(MediaPlayerEntity):
         self._ip_address = scanner_details["ip_address"]
         self._port = int(scanner_details["port"])
         self._model = scanner_details["model"]
-        self._enabled = scanner_details["enabled"]
+        # self._enabled = scanner_details["enabled"]
         self._access_method = scanner_details["access_method"]
         self._volume = 0
         self._state = MediaPlayerState.OFF
@@ -213,17 +213,14 @@ class UnidenScanner(MediaPlayerEntity):
 
         # _LOGGER.warning("Update called: %s", self._reachable)
 
-        if not self._enabled:
-            # _LOGGER.warning("Not enabled: %s", self._name)
-            self.set_offline()
-            return
+        # if not self._enabled:
+        #    # _LOGGER.warning("Not enabled: %s", self._name)
+        #    self.set_offline()
+        #    return
 
         match self._access_method:
             case "Direct":
-                # _LOGGER.warning("Update called. REachable before: %s", self._reachable)
                 current_condition = self.fetch_direct()
-
-                # _LOGGER.warning("Update called. REachable after: %s", self._reachable)
             case "API":
                 current_condition = self.fetch_api()
             case _:
@@ -233,11 +230,12 @@ class UnidenScanner(MediaPlayerEntity):
 
         if current_condition["error"] is None:
             self.set_online()
-            self.update_ui(current_condition)
         else:
             # Error on fetch
             _LOGGER.error("Error fetching status: %s", current_condition["error"])
             self.set_offline()
+
+        self.update_ui(current_condition)
 
     def fetch_direct(self) -> dict:
         """Fetch the latest state directly from the scanner."""
@@ -334,25 +332,33 @@ class UnidenScanner(MediaPlayerEntity):
                 timeout=refresh_time - 0.25,
             )
             response.raise_for_status()
-            # data = response.json()
+            data = response.json()
+            info = {
+                "channel": data.get("mode", "unknown"),
+                "dept_name": "TODO",
+                "mode": data.get("mode", "unknown"),
+                "volume": 5,
+                "error": None,
+            }
             # self._volume = data.get("volume", 0) / 29.0
             # self._mode = data.get("mode", "unknown")
             # self._mode = "Trunk Scan2"
             # self._media_title = data.get("mode", "unknown")
             # _LOGGER.warning(f"Updated status: mode={self._mode}, volume={self._volume}")
         except requests.exceptions.RequestException:
-            _LOGGER.error("Error fetching status from API")
+            # _LOGGER.error("Error fetching status from API")
+            info = {
+                "channel": "unknown",
+                "dept_name": "unknown",
+                "mode": "unknown",
+                "volume": 0,
+                "error": "Exception fetching status",
+            }
             # self._state = MediaPlayerState.OFF
             # self._volume = 0
             # self._mode = "unknown"
 
-        return {
-            "channel": "TODO",
-            "dept_name": "TODO",
-            "mode": "Trunk Scan",
-            "volume": 5,
-            "error": None,
-        }
+        return info
 
     def update_ui(self, display_info) -> None:
         """Update the UI elements."""
