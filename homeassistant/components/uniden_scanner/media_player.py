@@ -88,6 +88,7 @@ class UnidenScanner(MediaPlayerEntity):
         self._access_method = scanner_details["access_method"]
         self._volume = 0
         self._state = MediaPlayerState.OFF
+        self._reachable = False
         self._mode = "unknown"
         self._is_volume_muted = False
         self._unmute_volume = self._volume
@@ -97,6 +98,7 @@ class UnidenScanner(MediaPlayerEntity):
         self._media_duration = 0
         self._media_album_name = "Album Name"
         self._media_artist = "Artist Name"
+        self.set_offline()
 
     @property
     def name(self) -> str:
@@ -175,9 +177,19 @@ class UnidenScanner(MediaPlayerEntity):
                 # Listen for a response
                 data, addr = s.recvfrom(2048)
 
+                if not self._reachable:
+                    _LOGGER.info("%s is now reachable", self._name)
+
+                self._reachable = True
+
                 return data
         except TimeoutError:
-            _LOGGER.error("Timed out waiting for response from scanner")
+            if self._reachable:
+                # Only report this once so the logs don't get flooded
+                _LOGGER.error("Timed out waiting for response from scanner")
+
+            self._reachable = False
+
             return None
         except OSError:
             _LOGGER.error("UDP communication error")
@@ -197,37 +209,31 @@ class UnidenScanner(MediaPlayerEntity):
     def update(self) -> None:
         """Fetch the latest state."""
 
-        # _LOGGER.warning("Update called: %s", self._name)
+        # _LOGGER.warning("Update called: %s", self._reachable)
 
         if not self._enabled:
             # _LOGGER.warning("Not enabled: %s", self._name)
-            self._state = MediaPlayerState.OFF
-            self._volume = 0
-            self._mode = "disabled"
+            self.set_offline()
             return
 
         match self._access_method:
             case "Direct":
-                self.update_direct()
+                # _LOGGER.warning("Update called. REachable before: %s", self._reachable)
+                self.fetch_direct()
+                # _LOGGER.warning("Update called. REachable after: %s", self._reachable)
             case "API":
-                self.update_api()
+                self.fetch_api()
             case _:
                 # Should not happen, but just in case
                 _LOGGER.error("Unknown access method")
-                return
+                # status = "unknown"
 
-    def update_direct(self) -> None:
+        # self._reachable = status
+
+    def fetch_direct(self) -> None:
         """Fetch the latest state directly from the scanner."""
 
         # _LOGGER.warning(f"Direct for {self._ip_address}")
-        # scanner_val = self.send_command("GSI", "xml")
-
-        # Add a cooldown to prevent state from being overwritten by a stale API response
-        if time.time() - self._last_set_volume_time < 2:
-            _LOGGER.warning(
-                "Skipping volume update due to recent set_volume_level call"
-            )
-            return
 
         try:
             response = self.send_command("GSI", "xml")
@@ -238,10 +244,7 @@ class UnidenScanner(MediaPlayerEntity):
                 (channel, dept_name) = self.get_channel(response)
             else:
                 (channel, dept_name) = "Unknown Channel", "Unknown Department"
-
-            # channel = self.get_channel(response) if response else "Unknown Channel"
-
-            # _LOGGER.warning(f"Channel info: {channel}")
+                self.set_offline()
 
             self._volume = 0
             self._mode = "Trunk Scan"
@@ -254,8 +257,6 @@ class UnidenScanner(MediaPlayerEntity):
             self._state = MediaPlayerState.OFF
             self._volume = 0
             self._mode = "unknown"
-
-        return
 
     def get_channel(self, response: bytes) -> tuple[str | None, str | None]:
         """Parse the XML response to extract the current channel and department."""
@@ -303,7 +304,7 @@ class UnidenScanner(MediaPlayerEntity):
 
         return name, dept_name
 
-    def update_api(self) -> None:
+    def fetch_api(self) -> None:
         """Fetch the latest state from the scanner API."""
 
         # _LOGGER.warning(f"Flask for {self._ip_address}")
@@ -446,3 +447,10 @@ class UnidenScanner(MediaPlayerEntity):
     async def async_turn_off(self) -> None:
         """Reboot the device."""
         self.send_command("MSM,1", "xml")
+
+    def set_offline(self) -> None:
+        """Set the scanner to offline state."""
+        self._state = MediaPlayerState.OFF
+        self._volume = 0
+        self._mode = "offline"
+        self._reachable = False
