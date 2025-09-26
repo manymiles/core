@@ -209,6 +209,7 @@ class UnidenScanner(MediaPlayerEntity):
 
     def update(self) -> None:
         """Fetch the latest state."""
+        current_condition = {}
 
         # _LOGGER.warning("Update called: %s", self._reachable)
 
@@ -220,20 +221,26 @@ class UnidenScanner(MediaPlayerEntity):
         match self._access_method:
             case "Direct":
                 # _LOGGER.warning("Update called. REachable before: %s", self._reachable)
-                self.fetch_direct()
+                current_condition = self.fetch_direct()
+
                 # _LOGGER.warning("Update called. REachable after: %s", self._reachable)
             case "API":
-                self.fetch_api()
+                current_condition = self.fetch_api()
             case _:
                 # Should not happen, but just in case
                 _LOGGER.error("Unknown access method")
                 # status = "unknown"
 
-        # self._reachable = status
+        if current_condition["error"] is None:
+            self.set_online()
+            self.update_ui(current_condition)
+        else:
+            # Error on fetch
+            _LOGGER.error("Error fetching status: %s", current_condition["error"])
+            self.set_offline()
 
-    def fetch_direct(self) -> None:
+    def fetch_direct(self) -> dict:
         """Fetch the latest state directly from the scanner."""
-
         # _LOGGER.warning(f"Direct for {self._ip_address}")
 
         try:
@@ -243,21 +250,25 @@ class UnidenScanner(MediaPlayerEntity):
             # Get the channel information from the XML response
             if response:
                 (channel, dept_name) = self.get_channel(response)
+                error = None
             else:
                 (channel, dept_name) = "Unknown Channel", "Unknown Department"
-                self.set_offline()
-
-            self._volume = 0
-            self._mode = "Trunk Scan"
-            self._media_title = str(channel)
-            self._media_artist = str(dept_name)
-            self._state = MediaPlayerState.PLAYING
-
+                error = "No response from scanner"
+                # self.set_offline()
         except requests.exceptions.RequestException:
             _LOGGER.error("Error fetching status")
-            self._state = MediaPlayerState.OFF
-            self._volume = 0
-            self._mode = "unknown"
+            error = "Exception fetching status"
+            (channel, dept_name) = "Unknown Channel", "Unknown Department"
+
+        return {
+            "channel": channel,
+            "dept_name": dept_name,
+            "mode": "Trunk Scan",
+            "volume": 5,
+            "error": error,
+        }
+
+        # return current_condition
 
     def get_channel(self, response: bytes) -> tuple[str | None, str | None]:
         """Parse the XML response to extract the current channel and department."""
@@ -305,18 +316,17 @@ class UnidenScanner(MediaPlayerEntity):
 
         return name, dept_name
 
-    def fetch_api(self) -> None:
+    def fetch_api(self) -> dict:
         """Fetch the latest state from the scanner API."""
-
         # _LOGGER.warning(f"Flask for {self._ip_address}")
         # scanner_val = self.send_command("GSI", "xml")
 
         # Add a cooldown to prevent state from being overwritten by a stale API response
-        if time.time() - self._last_set_volume_time < 2:
-            # _LOGGER.warning(
-            #    "Skipping volume update due to recent set_volume_level call"
-            # )
-            return
+        # if time.time() - self._last_set_volume_time < 2:
+        # _LOGGER.warning(
+        #    "Skipping volume update due to recent set_volume_level call"
+        # )
+        #    return
 
         try:
             response = requests.get(
@@ -324,17 +334,35 @@ class UnidenScanner(MediaPlayerEntity):
                 timeout=refresh_time - 0.25,
             )
             response.raise_for_status()
-            data = response.json()
-            self._volume = data.get("volume", 0) / 29.0
-            self._mode = data.get("mode", "unknown")
+            # data = response.json()
+            # self._volume = data.get("volume", 0) / 29.0
+            # self._mode = data.get("mode", "unknown")
             # self._mode = "Trunk Scan2"
-            self._media_title = data.get("mode", "unknown")
+            # self._media_title = data.get("mode", "unknown")
             # _LOGGER.warning(f"Updated status: mode={self._mode}, volume={self._volume}")
         except requests.exceptions.RequestException:
             _LOGGER.error("Error fetching status from API")
-            self._state = MediaPlayerState.OFF
-            self._volume = 0
-            self._mode = "unknown"
+            # self._state = MediaPlayerState.OFF
+            # self._volume = 0
+            # self._mode = "unknown"
+
+        return {
+            "channel": "TODO",
+            "dept_name": "TODO",
+            "mode": "Trunk Scan",
+            "volume": 5,
+            "error": None,
+        }
+
+    def update_ui(self, display_info) -> None:
+        """Update the UI elements."""
+        # _LOGGER.warning("Updating UI elements")
+        self._volume = 0
+        self._mode = display_info[
+            "mode"
+        ]  # This is key to making it lookg available or not
+        self._media_title = display_info["channel"]
+        self._media_artist = display_info["dept_name"]
 
     def set_volume_level(self, volume: float) -> None:
         """Set volume level, a float from 0 to 1."""
@@ -456,3 +484,10 @@ class UnidenScanner(MediaPlayerEntity):
         self._volume = 0
         self._mode = "offline"
         self._reachable = False
+
+    def set_online(self) -> None:
+        """Set the scanner to online state."""
+        self._state = MediaPlayerState.PLAYING
+        self._volume = 3
+        self._mode = "Trunk Scan"
+        self._reachable = True
