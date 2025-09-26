@@ -198,7 +198,7 @@ class UnidenScanner(MediaPlayerEntity):
         _LOGGER.warning("Update called: %s", self._name)
 
         if not self._enabled:
-            _LOGGER.warning("Not enabled: %s", self._name)
+            # _LOGGER.warning("Not enabled: %s", self._name)
             self._state = MediaPlayerState.OFF
             self._volume = 0
             self._mode = "disabled"
@@ -208,7 +208,7 @@ class UnidenScanner(MediaPlayerEntity):
             case "Direct":
                 self.update_direct()
             case "API":
-                self.update_flask()
+                self.update_api()
             case _:
                 # Should not happen, but just in case
                 _LOGGER.error("Unknown access method")
@@ -301,7 +301,7 @@ class UnidenScanner(MediaPlayerEntity):
 
         return name, dept_name
 
-    def update_flask(self) -> None:
+    def update_api(self) -> None:
         """Fetch the latest state from the scanner API."""
 
         # _LOGGER.warning(f"Flask for {self._ip_address}")
