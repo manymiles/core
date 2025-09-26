@@ -36,7 +36,8 @@ SUPPORT_UNIDEN = (
     | MediaPlayerEntityFeature.TURN_OFF
 )
 
-SCAN_INTERVAL = timedelta(seconds=1)
+refresh_time = 2
+SCAN_INTERVAL = timedelta(seconds=refresh_time)
 
 
 def setup_platform(
@@ -169,7 +170,7 @@ class UnidenScanner(MediaPlayerEntity):
         try:
             # Create a UDP socket
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.settimeout(1)  # 1 second timeout
+                s.settimeout(refresh_time - 0.25)  # 1 second timeout
                 # Send the command with a carriage return
                 cmd = (command + "\r").encode("latin-1")
                 s.sendto(cmd, (self._ip_address, self._port))
@@ -319,7 +320,8 @@ class UnidenScanner(MediaPlayerEntity):
 
         try:
             response = requests.get(
-                f"http://{self._ip_address}:{self._port}/scanner/status", timeout=2
+                f"http://{self._ip_address}:{self._port}/scanner/status",
+                timeout=refresh_time - 0.25,
             )
             response.raise_for_status()
             data = response.json()
