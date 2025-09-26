@@ -195,7 +195,15 @@ class UnidenScanner(MediaPlayerEntity):
     def update(self) -> None:
         """Fetch the latest state."""
 
-        # _LOGGER.warning("Update called: %s", self._access_method)
+        _LOGGER.warning("Update called: %s", self._name)
+
+        if not self._enabled:
+            _LOGGER.warning("Not enabled: %s", self._name)
+            self._state = MediaPlayerState.OFF
+            self._volume = 0
+            self._mode = "disabled"
+            return
+
         match self._access_method:
             case "Direct":
                 self.update_direct()

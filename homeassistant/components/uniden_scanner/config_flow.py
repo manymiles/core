@@ -37,16 +37,7 @@ DATA_SCHEMA = vol.Schema(
                 }
             }
         ),
-        vol.Required("Active", default="Enabled"): selector(
-            {
-                "select": {
-                    "options": [
-                        "Enabled",
-                        "Disabled",
-                    ]
-                }
-            }
-        ),
+        vol.Required("Active", default=True): selector({"boolean": {}}),
     }
 )
 
